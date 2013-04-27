@@ -109,7 +109,8 @@ var Crazed = Crazed || {};
 		KEY_UP:38,
 		KEY_RIGHT:39,
 		KEY_DOWN:40,
-		KEY_LEFT:37
+		KEY_LEFT:37,
+		KEY_SPACE:32
 	};
 
 	var Input = Crazed.Input = Base.extend({
@@ -137,11 +138,12 @@ var Crazed = Crazed || {};
 			this.on('up ' + name, callback, context);
 		},
 		_keyDown: function (keyCode) {
-			console.log(keyCode);
+			// console.log(keyCode);
 			if (!(keyCode in this._keys)) return;
 			
 			this._isDown[this._keys[keyCode]] = true;
 			if (typeof this._keys[keyCode] === 'string') {
+				// console.log(this._keys[keyCode]);
 				this.trigger('down ' + this._keys[keyCode]);
 				return;
 			}
