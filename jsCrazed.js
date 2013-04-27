@@ -86,7 +86,7 @@ var Crazed = Crazed || {};
 			var now = new Date().getTime();
 			this.loop((now - this._lastLoop) / 1000);
 			var self = this;
-			frame.requestAnimFrame(function () {
+			window.requestAnimFrame(function () {
 				self._loop();
 			});
 			this._lastLoop = now;
@@ -128,7 +128,7 @@ var Crazed = Crazed || {};
 			this._keys[keyCode] = name;
 		},
 		isDown: function (name) {
-			return this._keys[name];
+			return this._isDown[name];
 		},
 		onDown: function (name, callback, context) {
 			this.on('down ' + name, callback, context);
