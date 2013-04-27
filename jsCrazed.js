@@ -117,10 +117,10 @@ var Crazed = Crazed || {};
 		_isDown:{},
 		init: function () {
 			var self = this;
-			frame.addEventListener("keydown", function (evt) {
+			window.addEventListener("keydown", function (evt) {
 				self._keyDown(evt.keyCode);
 			}, false);
-			frame.addEventListener("keyup", function (evt) {
+			window.addEventListener("keyup", function (evt) {
 				self._keyUp(evt.keyCode);
 			}, false);
 		},
@@ -139,12 +139,13 @@ var Crazed = Crazed || {};
 		_keyDown: function (keyCode) {
 			console.log(keyCode);
 			if (!(keyCode in this._keys)) return;
+			
+			this._isDown[this._keys[keyCode]] = true;
 			if (typeof this._keys[keyCode] === 'string') {
-				this._keys[keyCode];
+				this.trigger('down ' + this._keys[keyCode]);
 				return;
 			}
-			this.trigger('down ' + this._keys[keyCode]);
-			this._isDown[this._keys[keyCode]] = true;
+			this._keys[keyCode]();
 		},
 		_keyUp: function (keyCode) {
 			if (!(keyCode in this._keys)) return;
@@ -182,7 +183,7 @@ var Crazed = Crazed || {};
 				throw 'Fixed scaleMode requires a definate width and height';
 			}
 
-			this.viewport = options.viewport || [-1, 1, 1, -1]; // TLx, TLy, BRx, BRy
+			this.viewport = options.viewport || [0, 0, 800, -600]; // TLx, TLy, BRx, BRy
 
 			this.frame = options.frame;
 			if (!this.frame) throw 'frame is required';
@@ -236,6 +237,7 @@ var Crazed = Crazed || {};
 			return this.layers[name];
 		},
 		getCtx: function (name) {
+			if (typeof name.fillRect === 'function') return name;
 			return this.getLayer(name).getContext('2d');
 		},
 		clear: function (name) {
@@ -295,14 +297,3 @@ var Crazed = Crazed || {};
 		}
 	});
 })();
-
-var render = new Crazed.Renderer({frame: '#game'});
-window.onresize = function () {
-	render.scale();
-};
-
-var ctx = render.addLayer('background', true);
-ctx.fillRect(25,25,100,100);
-
-ctx = render.addLayer('foreground', true);
-ctx.fillRect(25,300,100,100);
