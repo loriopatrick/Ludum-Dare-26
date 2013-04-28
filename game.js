@@ -204,9 +204,46 @@
 		}
 	}
 
-	var _levelData = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 2], [0, 0, 0, 2], [0, 0, 2, 2]];
+	var width = 16;
+	var height = 12;
 
-	loadLevel(_levelData);
+	function buildLevel() {
+		var levelData = [];
+
+		for (var y = 0; y < height; ++y) {
+			var xb = [];
+			for (var x = 0; x < width; ++x) {
+				xb.push(1);
+			}
+			levelData.push(xb);
+		}
+		var x = Math.floor(width / 2), y = Math.floor(height / 2);
+		var toDraw = 300;
+		for (var i = 0; i < toDraw; ++i) {
+			var dir = Math.random();
+			var value = 0;
+
+			if (dir < .25) {
+				++x;
+			} else if (dir < .5) {
+				++y;
+			} else if (dir < .75) {
+				--x;
+			} else {
+				--y;
+			}
+
+			if (y >= height) y = height - 1;
+			if (x >= width) x = width - 1;
+			if (y <= 0) y = 0;
+			if (x <= 0) x = 0;
+			levelData[y][x] = value;
+		}
+
+		return levelData;
+	}
+
+	var gameWin = this;
 
 	function extend(plate, food) {
 		for (var key in food) {
@@ -222,16 +259,17 @@
 
 	// left right up down
 	var playerDirections = [CAN_player.left, CAN_player.right, CAN_player.back, CAN_player.face];
+	var playerDirectionsNet = [CAN_net.left, CAN_net.right, CAN_net.back, CAN_net.face];
 	var Player = Crazed.Base.extend({
 		init: function (data) {
 			this.data = extend({
 				pos: {x:0, y:0},
 				last: {x:0, y:0},
-				dir: {x:0, y:1},
-				level: null
+				dir: {x:0, y:1}
 			}, data || {});
 		},
 		render: function (ctx, x, y) {
+			if (!me.alive) return;
 			// todo draw different for direction
 			var img = 0;
 			var dir = this.data.dir;
@@ -241,89 +279,180 @@
 			else if (dir.x == -1) img = 0;
 			else img = 3;
 
-			var can = playerDirections[img];
+			var can = (this.network? playerDirectionsNet : playerDirections)[img];
 			ctx.drawImage(can, x, y, can.width, can.height);
-			this.update = false;
+			this.isUp = false;
 		},
 		update: function (data) {
 			extend(this.data, data);
-			this.update = true;
+			this.isUp = true;
 		},
-		move: function (trans) { // todo: collision detection
+		move: function (trans) {
+			if (!me.alive) return;
+			if (!gameWin.levelData) return;
 			trans.x = trans.x || 0;
 			trans.y = trans.y || 0;
 			if (trans.x == 0 && trans.y == 0) return;
-			this.data.pos.x += trans.x;
-			this.data.pos.y += trans.y;
 
 			var buffer = 0.2;
 
-			var tlx = Math.floor(this.data.pos.x + buffer);
-			var tly = Math.floor(this.data.pos.y + buffer);
+			if (this.data.pos.x <= 0) this.data.pos.x  = 0;
+			else if (this.data.pos.x >= 800/BLOCK_SIZE - 1) this.data.pos.x  = 800/BLOCK_SIZE - 1.1;
 
-			var brx = Math.floor(this.data.pos.x + 1 - buffer);
-			var bry = Math.floor(this.data.pos.y + 1 - buffer);
+			if (this.data.pos.y <= 0) this.data.pos.y = 0;
+			else if (this.data.pos.y >= 600/BLOCK_SIZE - 1) this.data.pos.y = 600/BLOCK_SIZE - 1.1;
+
+			var tlx = Math.floor(this.data.pos.x + .1);
+			var tly = Math.floor(this.data.pos.y + .1);
+
+			var brx = Math.floor(this.data.pos.x + .9);
+			var bry = Math.floor(this.data.pos.y + .9);
 
 			// console.log(tlx + ' : ' + brx + ', ' + tly + ' : ' + bry);
 
+			var bounce = .2;
+
+			var left = 1, right = 1, up = 1, down = 1;
+
+			if (gameWin.levelData[tly][tlx] || gameWin.levelData[bry][tlx]) {
+				this.data.pos.x += bounce;
+				left = 0;
+			}
+
+			if (gameWin.levelData[tly][brx] || gameWin.levelData[bry][brx]) {
+				this.data.pos.x -= bounce;
+				right = 0;
+			}
+
+			if (gameWin.levelData[tly][tlx] || gameWin.levelData[tly][brx]) {
+				this.data.pos.y += bounce;
+				up = 0;
+			}
+
+			if (gameWin.levelData[bry][tlx] || gameWin.levelData[bry][brx]) {
+				this.data.pos.y -= bounce;
+				down = 0;
+			}
+
+
 			if (trans.x < 0) { // left
 				this.data.dir.x = -1;
-				if ((this.data.level[tly] && this.data.level[tly][tlx]) || (this.data.level[bry] && this.data.level[bry][tlx])) {
-					this.data.pos.x = tlx + 1;
-				}
 			} else if (trans.x > 0) {
 				this.data.dir.x = 1;
-				if ((this.data.level[tly] && this.data.level[tly][brx]) || (this.data.level[bry] && this.data.level[bry][brx])) {
-					this.data.pos.x = brx - 1;
-				}
 			} else {
 				this.data.dir.x = 0;
 			}
 
 			if (trans.y < 0) { // up
 				this.data.dir.y = -1;
-				if (this.data.level[tly] && (this.data.level[tly][tlx] || this.data.level[tly][brx])) {
-					this.data.pos.y = tly + 1;
-				}
 			} else if (trans.y > 0) { // down
 				this.data.dir.y = 1;
-				if (this.data.level[bry] && (this.data.level[bry][tlx] || this.data.level[bry][brx])) {
-					this.data.pos.y = bry - 1;
-					console.log('hit');
-				}
 			} else {
 				this.data.dir.y = 0;
 			}
 
-			if (this.data.pos.x < 0) this.data.pos.x = 0;
-			if (this.data.pos.y < 0) this.data.pos.y = 0;
-			if (this.data.pos.y >= 600/BLOCK_SIZE - 1) this.data.pos.y = 600/BLOCK_SIZE - 1;
-			if (this.data.pos.x >= 800/BLOCK_SIZE - 1) this.data.pos.x = 800/BLOCK_SIZE - 1;
 
-			this.update = true;
+			this.data.pos.x += trans.x > 0? trans.x * right : trans.x * left;
+			this.data.pos.y += trans.y > 0? trans.y * down : trans.y * up;
+
+			this.isUp = true;
 			this.setOld();
 		},
 		setOld: function () {
 			var dist = Math.sqrt(Math.pow(this.data.pos.x - this.data.last.x, 2) + Math.pow(this.data.pos.y - this.data.last.y, 2));
-			if (dist >= .2)
+			if (dist >= .1)
 				this.old = true;
 			extend(this.data.last, this.data.pos);
 		}
 	});
 
-	var me = new Player({level:this.levelData});
+	var me = new Player();
 
 	var bulletLayer = render.addLayer('bullets', true);
 	var playerLayer = render.addLayer('players', true);
 	var statsLayer = render.addLayer('stats', true);
 
-	statsLayer.font = '20px Arial';
-	statsLayer.fillText("10 kills, 4 deaths, 12 players",10,30);
+	
 
 	var bullets = [];
-	var netPlayers = {};
+	var players = {};
 
-	var gameWin = this;
+	var socket = io.connect();
+	socket.on('init', function (data) {
+		for (var key in data.players) {
+			var plr = new Player(data.players[key]);
+			plr.network = true;
+			players[key] = plr;
+			updateStats();
+		}
+		bullets = data.bullets;
+		this.levelData = data.level;
+		loadLevel(this.levelData);
+	});
+
+	socket.on('setId', function (id) {
+		me.id = id;
+		if (id in players)
+			delete players[id];
+	});
+
+	var kills_num = 0, deaths_num = 0;
+
+function countProperties(obj) {
+    var count = 0;
+
+    for(var prop in obj) {
+        if(obj.hasOwnProperty(prop))
+            ++count;
+    }
+
+    return count;
+}
+	function updateStats () {
+		render.clear(statsLayer);
+		statsLayer.font = '20px Arial';
+		statsLayer.fillText(kills_num + ' kills, '+deaths_num+' deaths, '+(countProperties(players) + 1)+' players',10,30);
+	}
+
+	socket.on('spawn', function (player) {
+		if (player.id == me.id) {
+			me.update(player);
+			me.alive = true;
+			return;
+		}
+		players[player.id] = new Player(player);
+		players[player.id].network = true;
+	});
+
+	socket.on('update', function (data) {
+		if (data.id == me.id) return;
+		var player = players[data.id];
+		player.update(data.data);
+	});
+
+	socket.on('shoot', function (bullet) {
+		bullets.push(bullet);
+	});
+
+	socket.on('kill', function (data) {
+		for (var i = 0; i < bullets.length; ++i) {
+			if (bullets[i].bid == data.bid) {
+				bullets.splice(i, 1);
+				break;
+			}
+		}
+		if (data.source == me.id) ++kills_num;
+		if (data.victim == me.id) {
+			++deaths_num;
+			me.alive = false;
+			socket.emit('spawn');
+		} else {
+			delete players[data.victim];
+		}
+
+		updateStats();
+	});
+
 
 	var GameLoop = Crazed.GameLoop.extend({
 		loop: function (delta) {
@@ -335,9 +464,18 @@
 				x:(input.isDown('right')? move : (input.isDown('left')? -move : 0)),
 			});
 
-			if (me.update) {
-				render.clear(playerLayer);
-				me.render(playerLayer, BLOCK_SIZE * me.data.pos.x, BLOCK_SIZE * me.data.pos.y);
+			render.clear(playerLayer);
+
+			for (var i in players) {
+				var p = players[i];
+				p.render(playerLayer, BLOCK_SIZE * p.data.pos.x, BLOCK_SIZE * p.data.pos.y)
+			}
+
+			me.render(playerLayer, BLOCK_SIZE * me.data.pos.x, BLOCK_SIZE * me.data.pos.y);
+
+			if (me.old && me.alive) {
+				socket.emit('update', me.data);
+				me.old = false;
 			}
 
 			var new_bullets = [];
@@ -363,13 +501,16 @@
 	});
 
 	input.onDown('fire', function () {
+		if (!me.alive) return;
 		console.log('fire');
-		var bullet = {x:me.data.pos.x + .5, y:me.data.pos.y + .5, vx:me.data.dir.x*2, vy:me.data.dir.y*2};
-		bullets.push(bullet);
+		var bullet = {x:me.data.pos.x + .5, y:me.data.pos.y + .5, vx:me.data.dir.x*2, vy:me.data.dir.y*2, bid: Math.random() + ''};
+		socket.emit('shoot', bullet);
+		// bullets.push(bullet);
 	});
 
 	var loop = new GameLoop();
 	loop.start();
+	socket.emit('spawn');
 
 	// var a = BLOCK_SIZE * 5;
 	// var players = render.addLayer('players', true);
